@@ -31,8 +31,8 @@ class MeetingController extends Controller
 
     public function signal(Request $request)
     {
-        $data = $request->all();
-        $room = $data['room'] ?? null;
+        $data    = $request->all();
+        $room    = $data['room'] ?? null;
 
         if (!$room) {
             return response()->json(['error' => 'No room'], 400);
@@ -44,36 +44,45 @@ class MeetingController extends Controller
         $appCluster = env('PUSHER_APP_CLUSTER', 'ap1');
 
         $channel   = 'room-' . $room;
-        $event     = 'signal';
-        $body      = json_encode(['data' => $data]);
+        $eventName = 'signal';
+
+        // Build the body
+        $body = json_encode([
+            'name'     => $eventName,
+            'channel'  => $channel,
+            'data'     => json_encode(['data' => $data]),
+        ]);
+
         $timestamp = time();
         $md5body   = md5($body);
+        $path      = "/apps/{$appId}/events";
 
-        $stringToSign = "POST\n/apps/{$appId}/events\n" .
-            "auth_key={$appKey}" .
-            "&auth_timestamp={$timestamp}" .
-            "&auth_version=1.0" .
-            "&body_md5={$md5body}" .
-            "&channel={$channel}" .
-            "&name={$event}";
+        // Query params must be sorted alphabetically
+        $params = [
+            'auth_key'       => $appKey,
+            'auth_timestamp' => $timestamp,
+            'auth_version'   => '1.0',
+            'body_md5'       => $md5body,
+        ];
+        ksort($params);
+        $queryString = http_build_query($params);
 
+        // Build string to sign
+        $stringToSign = "POST\n{$path}\n{$queryString}";
         $authSignature = hash_hmac('sha256', $stringToSign, $appSecret);
 
-        $url = "https://api-{$appCluster}.pusher.com/apps/{$appId}/events" .
-            "?auth_key={$appKey}" .
-            "&auth_timestamp={$timestamp}" .
-            "&auth_version=1.0" .
-            "&body_md5={$md5body}" .
-            "&auth_signature={$authSignature}";
+        $url = "https://api-{$appCluster}.pusher.com{$path}?{$queryString}&auth_signature={$authSignature}";
 
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_exec($ch);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        return response()->json(['ok' => true]);
+        return response()->json(['ok' => true, 'pusher' => $response, 'code' => $httpCode]);
     }
 }
