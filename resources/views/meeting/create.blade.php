@@ -1,5 +1,5 @@
 @extends('meeting.layout')
-@section('title', 'Create Meeting — MeetNow')
+@section('title', 'Create Meeting — Jumingle')
 
 @section('content')
 <div class="card">

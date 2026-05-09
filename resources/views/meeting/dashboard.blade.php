@@ -1,5 +1,5 @@
 @extends('meeting.layout')
-@section('title', 'MeetNow — Dashboard')
+@section('title', 'Jumingle — Dashboard')
 
 @section('content')
 <div class="card" style="text-align:center; max-width: 420px;">
