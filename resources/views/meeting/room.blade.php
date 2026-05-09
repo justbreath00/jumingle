@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meeting {{ $roomId }} — Jumingle</title>
+    <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -17,7 +18,6 @@
             overflow: hidden;
         }
 
-        /* ── Top bar ── */
         .topbar {
             display: flex;
             align-items: center;
@@ -30,14 +30,12 @@
         }
         .topbar-left  { display: flex; align-items: center; gap: 12px; }
         .topbar-right { display: flex; align-items: center; gap: 10px; }
-
         .logo-icon {
             width: 28px; height: 28px; background: #1a73e8;
             border-radius: 6px; display: flex; align-items: center; justify-content: center;
         }
         .logo-icon svg { width: 16px; height: 16px; fill: #fff; }
         .logo-name { font-size: 15px; font-weight: 600; }
-
         .room-badge {
             background: #374151; border-radius: 6px;
             padding: 3px 10px; font-size: 12px; color: #9ca3af;
@@ -57,7 +55,7 @@
             font-size: 13px; font-weight: 500;
         }
 
-        /* ── Video grid ── */
+        /* grid */
         .video-area {
             flex: 1;
             display: grid;
@@ -72,7 +70,7 @@
         .grid-4    { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
         .grid-many { grid-template-columns: repeat(3, 1fr); }
 
-        /* ── Tile ── */
+        /* tile */
         .tile {
             position: relative;
             background: #1f2937;
@@ -82,65 +80,46 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 0;
-            min-width: 0;
+            min-height: 0; min-width: 0;
         }
-        .tile.speaking { border-color: #1a73e8; }
-
         .tile video {
-            width: 100%;
-            height: 100%;
+            width: 100%; height: 100%;
             object-fit: contain;
             background: #0d1117;
             display: block;
         }
         .tile video.mirror { transform: scaleX(-1); }
-
-        /* camera off overlay */
         .cam-off {
             position: absolute; inset: 0;
             background: #1f2937;
             display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            gap: 14px;
+            align-items: center; justify-content: center; gap: 14px;
         }
         .avatar {
-            width: 84px; height: 84px;
-            border-radius: 50%;
+            width: 84px; height: 84px; border-radius: 50%;
             background: #1a73e8;
             display: flex; align-items: center; justify-content: center;
             font-size: 32px; font-weight: 700; color: #fff;
-            letter-spacing: -1px; flex-shrink: 0;
         }
         .cam-off-name { font-size: 14px; color: #9ca3af; font-weight: 500; }
-
-        /* name label */
         .tile-label {
-            position: absolute;
-            bottom: 10px; left: 10px;
+            position: absolute; bottom: 10px; left: 10px;
             background: rgba(0,0,0,0.55);
-            padding: 3px 10px;
-            border-radius: 6px;
+            padding: 3px 10px; border-radius: 6px;
             font-size: 12px; font-weight: 500;
             max-width: calc(100% - 50px);
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             z-index: 2;
         }
-
-        /* muted dot */
         .muted-dot {
-            position: absolute;
-            bottom: 10px; right: 10px;
-            background: #dc2626;
-            width: 26px; height: 26px;
+            position: absolute; bottom: 10px; right: 10px;
+            background: #dc2626; width: 26px; height: 26px;
             border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
             z-index: 2;
         }
         .muted-dot svg { width: 13px; height: 13px; stroke: #fff; fill: none;
                          stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-        /* waiting message inside local tile */
         .waiting-msg {
             position: absolute; bottom: 48px;
             left: 50%; transform: translateX(-50%);
@@ -151,30 +130,24 @@
             pointer-events: none; z-index: 3;
         }
 
-        /* ── Controls ── */
+        /* controls */
         .controls {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 16px;
-            padding: 14px 20px;
-            background: #1f2937;
-            border-top: 1px solid #374151;
+            display: flex; align-items: center; justify-content: center;
+            gap: 16px; padding: 14px 20px;
+            background: #1f2937; border-top: 1px solid #374151;
             flex-shrink: 0;
         }
         .ctrl-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
         .ctrl {
-            width: 48px; height: 48px;
-            border-radius: 50%; border: none;
+            width: 48px; height: 48px; border-radius: 50%; border: none;
             display: flex; align-items: center; justify-content: center;
-            cursor: pointer;
-            transition: background 0.15s, transform 0.1s;
+            cursor: pointer; transition: background 0.15s, transform 0.1s;
         }
         .ctrl:active { transform: scale(0.93); }
         .ctrl svg { width: 20px; height: 20px; stroke: currentColor; fill: none;
                     stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
         .ctrl-on    { background: #374151; color: #e5e7eb; }
-        .ctrl-on:hover { background: #4b5563; }
+        .ctrl-on:hover  { background: #4b5563; }
         .ctrl-off   { background: #dc2626; color: #fff; }
         .ctrl-off:hover { background: #b91c1c; }
         .ctrl-leave { background: #dc2626; color: #fff; }
@@ -182,7 +155,6 @@
         .ctrl-label { font-size: 11px; color: #6b7280; }
         .ctrl-label.red { color: #f87171; }
 
-        /* ── Toast ── */
         .toast {
             position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
             background: #1f2937; border: 1px solid #374151;
@@ -193,10 +165,8 @@
         }
         .toast.show { opacity: 1; }
 
-        /* ── Permission modal ── */
         .modal-bg {
-            position: fixed; inset: 0;
-            background: rgba(0,0,0,0.75);
+            position: fixed; inset: 0; background: rgba(0,0,0,0.75);
             display: flex; align-items: center; justify-content: center; z-index: 300;
         }
         .modal {
@@ -214,7 +184,6 @@
 </head>
 <body>
 
-{{-- ── Topbar ── --}}
 <div class="topbar">
     <div class="topbar-left">
         <div class="logo-icon">
@@ -235,10 +204,8 @@
     </div>
 </div>
 
-{{-- ── Video grid ── --}}
 <div class="video-area grid-1" id="videoArea"></div>
 
-{{-- ── Controls ── --}}
 <div class="controls">
     <div class="ctrl-wrap">
         <button class="ctrl ctrl-on" id="micBtn" onclick="toggleMic()">
@@ -251,7 +218,6 @@
         </button>
         <span class="ctrl-label" id="micLabel">Mute</span>
     </div>
-
     <div class="ctrl-wrap">
         <button class="ctrl ctrl-on" id="camBtn" onclick="toggleCam()">
             <svg id="camSvg" viewBox="0 0 24 24">
@@ -260,7 +226,6 @@
         </button>
         <span class="ctrl-label" id="camLabel">Stop video</span>
     </div>
-
     <div class="ctrl-wrap">
         <button class="ctrl ctrl-leave" onclick="leaveMeeting()">
             <svg viewBox="0 0 24 24">
@@ -273,14 +238,12 @@
     </div>
 </div>
 
-{{-- ── Toast ── --}}
 <div class="toast" id="toast"></div>
 
-{{-- ── Permission modal ── --}}
 <div class="modal-bg" id="permModal">
     <div class="modal">
         <h3>Camera & Microphone</h3>
-        <p>MeetNow needs your camera and microphone. Click Allow when your browser asks.</p>
+        <p>Jumingle needs your camera and microphone. Click Allow when your browser asks.</p>
         <div class="modal-btns">
             <button class="mbtn mbtn-blue" onclick="startMedia(false)">Allow & join</button>
             <button class="mbtn mbtn-gray" onclick="startMedia(true)">Audio only</button>
@@ -297,15 +260,28 @@ const MY_ID    = Math.random().toString(36).slice(2) + Date.now();
 let localStream = null;
 let micOn = true;
 let camOn = true;
-const peers = {};  // peerId → { pc, nickname, micOn, camOn }
+const peers = {};
 
-/* ── Signaling ── */
-const ch = new BroadcastChannel('meetnow:' + ROOM_ID);
+/* ── Pusher signaling ── */
+Pusher.logToConsole = false;
+const pusher = new Pusher('c3de411ca06672f5d128', { cluster: 'ap1' });
+const channel = pusher.subscribe('room-' + ROOM_ID);
 
-function send(msg) { ch.postMessage({ ...msg, from: MY_ID }); }
+function send(msg) {
+    fetch('/meeting/signal', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]') 
+                            ? document.querySelector('meta[name="csrf-token"]').content 
+                            : '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({ ...msg, from: MY_ID, room: ROOM_ID })
+    });
+}
 
-ch.onmessage = async ({ data: m }) => {
-    if (m.from === MY_ID) return;
+channel.bind('signal', async ({ data: m }) => {
+    if (!m || m.from === MY_ID) return;
     if (m.to && m.to !== MY_ID) return;
 
     if (m.type === 'hello') {
@@ -322,7 +298,7 @@ ch.onmessage = async ({ data: m }) => {
     }
     else if (m.type === 'offer') {
         if (!peers[m.from]) peers[m.from] = {};
-        peers[m.from].nickname = m.nickname || peers[m.from].nickname || 'Guest';
+        peers[m.from].nickname = m.nickname || 'Guest';
         const pc = getOrCreatePC(m.from);
         await pc.setRemoteDescription(new RTCSessionDescription(m.sdp));
         const answer = await pc.createAnswer();
@@ -348,7 +324,7 @@ ch.onmessage = async ({ data: m }) => {
     else if (m.type === 'bye') {
         removePeer(m.from);
     }
-};
+});
 
 /* ── Media ── */
 async function startMedia(audioOnly) {
@@ -387,12 +363,9 @@ function renderLocalTile() {
 function syncLocalTile() {
     const tile = document.getElementById('tile-local');
     if (!tile) return;
-    // camera overlay
     tile.querySelector('.cam-off').style.display = camOn ? 'none' : 'flex';
     tile.querySelector('video').style.display    = camOn ? 'block' : 'none';
-    // muted dot
     syncMutedDot(tile, micOn);
-    // waiting message — show only when alone
     const alone = document.querySelectorAll('.tile').length === 1;
     let wm = tile.querySelector('.waiting-msg');
     if (alone && !wm) {
@@ -405,7 +378,7 @@ function syncLocalTile() {
     }
 }
 
-/* ── Remote tile ── */
+/* ── Remote tiles ── */
 function getOrCreateRemoteTile(peerId) {
     const tileId = 'tile-' + peerId;
     let tile = document.getElementById(tileId);
@@ -413,7 +386,6 @@ function getOrCreateRemoteTile(peerId) {
         const nick = peers[peerId]?.nickname || 'Guest';
         tile = makeTile(tileId, nick, false);
         document.getElementById('videoArea').appendChild(tile);
-        // remove waiting message from local tile once someone joins
         document.querySelector('.waiting-msg')?.remove();
         refreshGrid();
     }
@@ -476,7 +448,7 @@ function refreshGrid() {
         count === 2 ? 'grid-2' :
         count <= 4  ? 'grid-3' : 'grid-many'
     );
-    syncLocalTile(); // re-check waiting message
+    syncLocalTile();
 }
 
 /* ── WebRTC ── */
@@ -574,7 +546,7 @@ function updateControlUI() {
 function leaveMeeting() {
     send({ type: 'bye' });
     localStream?.getTracks().forEach(t => t.stop());
-    ch.close();
+    pusher.unsubscribe('room-' + ROOM_ID);
     window.location.href = '{{ route("dashboard") }}';
 }
 
